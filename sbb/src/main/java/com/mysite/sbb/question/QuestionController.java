@@ -24,7 +24,6 @@ public class QuestionController {
 
 //	@RequestMapping("/question/list")
 	@RequestMapping("/list")
-
 	public String list(Model model) {
 //		List<Question> questionList = this.questionRepository.findAll();
 		List<Question> questionList = this.questionService.getList();
@@ -33,7 +32,7 @@ public class QuestionController {
 	}
 
 //	@RequestMapping(value = "/question/detail/{id}")
-	@RequestMapping(value = "/detail{id}")
+	@RequestMapping(value = "/detail/{id}")
 	public String detail(Model model, @PathVariable("id") Integer id) {
 		Question question = this.questionService.getQuestion(id);
 		model.addAttribute("question", question);
