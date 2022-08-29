@@ -260,3 +260,375 @@ chain.doFilter(request,response);
 
 
 
+## 입력 데이터 배열로 받기
+
+~~~java
+String[] num_ = request.getParameterValues("num");
+int result = 0;
+for(int i=0; i<num_.length; i++) {
+    int num = Integer.parseInt(num_[i]);
+    result += num;
+}
+~~~
+
+이런 식으로 배열로 입력값을 처리하게 된다면 input(name은 서로 동일)의 개수에 상관없이 여러 데이터를 다룰 수 있게 됨.
+
+
+
+## 상태 유지의 필요성
+
+servlet들이 죽더라도 서로 공유할 수 있는 정보가 필요하다
+
+=> application / session / cookie로 handle 가능
+
+
+
+### Application 객체
+
+Application 저장소 : 서블릿 Context
+
+=> 일종의 책갈피. 상태 저장 공간. 서블릿의 자원을 공유할 수 있는 공간
+
+=> 서블릿들이 사라져도 해당 자원에 대한 정보를 포함하고 있음
+
+
+
+~~~ java
+ServletContext application = request.getServletContext(); // application 저장소, ServletContext 선언, 전역으로 값 저장 가능
+		
+		
+response.setCharacterEncoding("UTF-8");
+response.setContentType("text/html; charset=UTF-8");
+
+String v_ = request.getParameter("x");
+String op = request.getParameter("operator");
+
+
+int v = 0;
+
+if(!v_.equals("")) v = Integer.parseInt(v_);
+
+if(op.equals("=")) {
+    // 값을 계산한다!
+
+    int x = (Integer)application.getAttribute("value"); // 앞에서 자장한 값
+    int y = v; // 사용자가 지금 입력한 값
+    String operator = (String)application.getAttribute("op");
+    int result = 0;	
+
+    if(operator.equals("+")) {
+        result = x + y;
+    } else {
+        result = x - y;
+    }
+    response.getWriter().printf("result : %d", result);
+
+} else {
+    // 값을 저장한다!
+    application.setAttribute("value", v);
+    application.setAttribute("op", op);
+
+}
+~~~
+
+setAttribute로 전역 변수를 setting해주고, getAttribute로 값을 불러온다.
+
+하지만 이렇게 하게 되면, 단순 계산(a+b = c)밖에 하지 못함.(3개 이상의 변수로 계산 불가능, setAttribute로 계산하려는 값이 계속 갱신되므로)
+
+
+
+## Session 객체로 상태 값 저장하기
+
+
+
+코드는 application 객체와 비슷함
+
+~~~java
+ServletContext application = request.getServletContext(); // application 저장소, ServletContext 선언, 전역으로 값 저장 가능
+HttpSession session = request.getSession();	// session 객체 선언
+
+
+
+response.setCharacterEncoding("UTF-8");
+response.setContentType("text/html; charset=UTF-8");
+
+String v_ = request.getParameter("x");
+String op = request.getParameter("operator");
+
+
+int v = 0;
+
+if(!v_.equals("")) v = Integer.parseInt(v_);
+
+if(op.equals("=")) {
+    // 값을 계산한다!
+
+    //			int x = (Integer)application.getAttribute("value"); // 앞에서 자장한 값
+    int x = (Integer)session.getAttribute("value"); // 앞에서 자장한 값
+    int y = v; // 사용자가 지금 입력한 값
+    //			String operator = (String)application.getAttribute("op");
+    String operator = (String)session.getAttribute("op");
+    int result = 0;	
+
+    if(operator.equals("+")) {
+        result = x + y;
+    } else {
+        result = x - y;
+    }
+    response.getWriter().printf("result : %d", result);
+
+} else {
+    // 값을 저장한다!
+    //			application.setAttribute("value", v);
+    //			application.setAttribute("op", op);
+    session.setAttribute("value", v);
+    session.setAttribute("op", op);
+
+}
+~~~
+
+
+
+#### 차이점
+
+- Application 객체
+  - 이 객체를 사용할 때, Application  전역에서 사용 가능하다!
+- Session 객체
+  - Session 범주 내에서 사용 가능하다!
+    - Session이란, 현재 접속한 사용자를 의미함 => 사용자 별로 공간이 달라질 수 있음. 따라서, 사용자간 독립적인 값을 갖게 됨.
+    - 동일 브라우저는 같은 session으로 인식함
+
+
+
+## 웹 서버가 현재 사용자(Session)를 구분하는 방식
+
+
+
+Session ID가 WAS에 의해 발급됨
+
+=> 발급된 ID는 브라우저가 계속 가지고 있음. 같은 브라우저라면 같은 번호를 발급 받음, 브라우저 닫으면 해당 번호 삭제
+
+ => 서버는 해당 Session ID를 담고 있는 캐비넷 같은 것을 임시로 가지고 있음. 일정 시간마다 사용자의 요청이 없을 시 서버는 캐비넷의 메모리를 수거해감.
+
+
+
+Session ID 가 달라지면 서버는 다른 이용자로 식별함
+
+다른 유저의 Session ID를 훔쳐서 요청 보내면, 서버는 같은 사용자로 인식하게 됨.
+
+
+
+
+
+## Cookie를 이용해 상태 값 유지하기
+
+상태 값을 클라이언트에 두고 있는 것 => 쿠키
+
+서버 쪽의 저장소 : Application, Session
+
+클라이언트 쪽의 저장소 : Cookie
+
+
+
+클라이언트가 서버에 Request할 때
+
+- Header 정보(브라우저가 알아서 담아줌) / getHeader
+- 사용자 데이터(내가 보내는 데이터) / getParameter
+- 쿠키 / getCookies
+
+서버가 클라이언트에게 Response 할 때
+
+- addCookie => 쿠키를 심어서 보낼 수 있음 => 클라이언트가 해당 쿠키를 저장함
+
+~~~ java
+// 쿠키 저장하기
+Cookie cookie = new Cookie("c", String.valueOf(result)); // key - value 값으로 쿠키 보냄
+response.addCookie(cookie);
+
+// 쿠키 읽기
+Cookie[] cookies = request.getCookies(); // 배열로 옴
+String c_ = "";
+
+if(cookies != null){
+    for (Cookie cookie: cookies){
+        if("c".equals(cookie.getName())){ // 쿠키를 찾고, 해당 값의 value를 얻는다!
+            c_ = cookie.getValue(); 
+        }
+    }
+}
+~~~
+
+쿠키는 무조건 문자열(url에 추가할 수 있는) 형태로만 보내야 함
+
+~~~ java
+ServletContext application = request.getServletContext(); // application 저장소, ServletContext 선언, 전역으로 값 저장 가능
+HttpSession session = request.getSession();	// session 객체 선언
+Cookie[] cookies = request.getCookies(); // 쿠키는 배열로 옴
+
+
+
+response.setCharacterEncoding("UTF-8");
+response.setContentType("text/html; charset=UTF-8");
+
+String v_ = request.getParameter("x");
+String op = request.getParameter("operator");
+
+
+int v = 0;
+
+if(!v_.equals("")) v = Integer.parseInt(v_);
+
+if(op.equals("=")) {
+    // 값을 계산한다!
+
+    //			int x = (Integer)application.getAttribute("value"); // 앞에서 자장한 값
+    //			int x = (Integer)session.getAttribute("value"); // 앞에서 자장한 값
+    int x = 0;
+    for(Cookie c:cookies) {
+        if(c.getName().equals("value")) {
+            x = Integer.parseInt(c.getValue());
+            break;
+        }
+    }
+
+
+
+    int y = v; // 사용자가 지금 입력한 값
+    //			String operator = (String)application.getAttribute("op");
+    //			String operator = (String)session.getAttribute("op");
+
+    String operator = "";
+    for(Cookie c:cookies) {
+        if(c.getName().equals("op")) {
+            operator = c.getValue();
+            break;
+        }
+    }
+
+    int result = 0;	
+
+    if(operator.equals("+")) {
+        result = x + y;
+    } else {
+        result = x - y;
+    }
+    response.getWriter().printf("result : %d", result);
+
+} else {
+    // 값을 저장한다!
+    //			application.setAttribute("value", v);
+    //			application.setAttribute("op", op);
+    //			session.setAttribute("value", v);
+    //			session.setAttribute("op", op);
+
+    Cookie valueCookie = new Cookie("value", String.valueOf(v));
+    Cookie opCookie = new Cookie("op", op);
+    response.addCookie(valueCookie);
+    response.addCookie(opCookie); // 쿠키 클라이언트에게 전달
+}
+
+
+~~~
+
+
+
+쿠키 사용한 코드
+
+
+
+## Cookie의 path 옵션
+
+보편적으로 servlet 끼리의 쿠키는 달라야 함
+
+따라서, 해당 url에 관련된 servlet에만 해당 쿠키를 사용할 수 있게끔 해줘야 함
+
+=> path 옵션
+
+~~~java
+Cookie valueCookie = new Cookie("value", String.valueOf(v));
+Cookie opCookie = new Cookie("op", op);
+
+valueCookie.setPath("/cal2"); // 해당 url이 포함된 url에 대한 쿠키를 가져와라.(setPath)
+opCookie.setPath("/cal2");
+
+response.addCookie(valueCookie);
+response.addCookie(opCookie); // 쿠키 클라이언트에게 전달
+
+~~~
+
+setPath를 통해 해당 path를 담고 있는 url에게만 cookie를 보낼 수 있게 설정할 수 있음
+
+
+
+## Cookie의 maxAge 옵션
+
+브라우저가 닫히면 Cookie는 날라감
+
+하지만, 기간을 설정하면 브라우저가 날라가도 Cookie 값을 유지할 수 있음
+
+브라우저가 닫히더라도 기간을 설정해두면 이는 외부 파일로 값을 가지고 있게 됨.
+
+~~~ java
+valueCookie.setMaxAge(60*60); // 만료 날짜를 설정할 수 있음. 초 단위. 브라우저를 닫아도 만료 날짜까지 쿠키는 사라지지 않는다!
+~~~
+
+
+
+## Application / Session / Cookie 차이점 정리
+
+- Application
+  - 사용 범위 : 전역 범위에서 사용하는 저장 공간
+  - 생명 주기 : WAS가 시작해서 종료할 때 까지
+  - 저장 위치 : WAS 서버의 메모리
+- Session
+  - 사용 범위 : 세션 범위(특정 사용자)에서 사용하는 저장 공간
+  - 생명 주기 : 세션이 시작해서 종료할 때 까지
+  - 저장 위치 : WAS 서버의 메모리
+- Cookie
+  - 사용 범위 : 웹 브라우저별 지정한 path 범주 공간
+  - 생명 주기 : 브라우저에 전달한 시간부터 만료시간 까지
+  - 저장 위치 : 웹 브라우저의 메모리 or file
+
+따라서, 기간이 길게 어떤 값을 저장하고 싶다 or 특정 링크에만 적용하는 데이터를 쓰고 싶다? => 무조건 쿠키 사용할 것.
+
+
+
+## Redirect
+
+response.sendRedirect("경로");
+
+
+
+## 쿠키 삭제하기
+
+그냥 빈 문자열 전달하면 안됨.
+
+.setMaxAge(0) 하면 바로 삭제됨.
+
+
+
+## GET 요청과 POST 요청에 특화된 서비스 함수
+
+~~~java
+// 첫번째 방법
+protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+	if(request.getMethod().equals("GET")){
+        
+    } else if(request.getMethod().equals("POST")){
+        
+    }
+    super.service(request, response) // 이 놈이 GET 요청일 시 doGet, POSt 요청일 시 doPost 메서드 실행시켜줌
+        // 아니면 위 로직 없이 바로 doGet, do Post 오버라이드해서 사용 가능
+}
+
+//
+~~~
+
+
+
+GET, POST를 따로 처리하게끔 하는 자바 클래스를 만들면 쿠키 관련 문제가 생길 수 있음
+
+path 설정은 하나의 url만 설정 가능 => 따라서 GET, POST 는 합쳐줘야 함
+
+
+
