@@ -1,6 +1,9 @@
 package j2j;
 
-public class sample {
+public class Sample {
+	public void sayNick(String nick) {
+		throw new FoolException();
+	}
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -28,6 +31,11 @@ public class sample {
 		keeper.feed(tiger);
 		keeper.feed(lion);
 
+		
+		
+		Sample sample = new Sample();
+		sample.sayNick("fool");
+		sample.sayNick("genius");
 		
 		
 		
